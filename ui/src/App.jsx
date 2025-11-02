@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import OrderPage from './pages/OrderPage'
+import AdminPage from './pages/AdminPage'
 import './App.css'
 
 function App() {
@@ -29,10 +30,7 @@ function App() {
         {currentPage === 'order' ? (
           <OrderPage />
         ) : (
-          <div className="admin-page">
-            <h1>관리자 화면</h1>
-            <p>관리자 화면이 여기에 표시됩니다.</p>
-          </div>
+          <AdminPage />
         )}
       </main>
     </div>

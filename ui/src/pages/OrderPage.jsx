@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import MenuCard from '../components/MenuCard'
 import Cart from '../components/Cart'
+import Toast from '../components/Toast'
 import '../styles/OrderPage.css'
 
 function OrderPage() {
+  const [toast, setToast] = useState({ show: false, message: '' })
   // 임의의 커피 메뉴 데이터 (이미지 URL 포함)
   const menuItems = [
     {
@@ -115,7 +117,10 @@ function OrderPage() {
   // 주문하기
   const handleOrder = () => {
     if (cartItems.length === 0) {
-      alert('장바구니가 비어있습니다.')
+      setToast({
+        show: true,
+        message: '장바구니가 비어있습니다.'
+      })
       return
     }
 
@@ -124,8 +129,38 @@ function OrderPage() {
       0
     )
 
-    alert(`주문이 완료되었습니다!\n총 금액: ${totalAmount.toLocaleString()}원`)
+    // 주문 데이터 생성
+    const newOrder = {
+      id: Date.now(),
+      orderTime: new Date().toISOString(),
+      items: cartItems.map(item => ({
+        menuId: item.menuId,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        options: item.options || []
+      })),
+      totalAmount: totalAmount,
+      status: 'received' // 주문 접수 상태
+    }
+
+    // localStorage에 주문 추가
+    const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+    existingOrders.push(newOrder)
+    localStorage.setItem('orders', JSON.stringify(existingOrders))
+
+    // 토스트 메시지 표시
+    setToast({
+      show: true,
+      message: `주문이 완료되었습니다!\n총 금액: ${totalAmount.toLocaleString()}원`
+    })
+    
     setCartItems([])
+  }
+
+  // 토스트 닫기
+  const closeToast = () => {
+    setToast({ show: false, message: '' })
   }
 
   return (
@@ -144,6 +179,12 @@ function OrderPage() {
         onIncrease={increaseQuantity}
         onDecrease={decreaseQuantity}
         onOrder={handleOrder}
+      />
+
+      <Toast
+        message={toast.message}
+        show={toast.show}
+        onClose={closeToast}
       />
     </div>
   )
