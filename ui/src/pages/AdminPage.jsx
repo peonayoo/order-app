@@ -15,9 +15,13 @@ function AdminPage() {
 
   // 재고 데이터 (주문하기 화면과 동일한 메뉴 ID 사용) - localStorage에서 로드
   const [inventory, setInventory] = useState(() => {
-    const savedInventory = localStorage.getItem('inventory')
-    if (savedInventory) {
-      return JSON.parse(savedInventory)
+    try {
+      const savedInventory = localStorage.getItem('inventory')
+      if (savedInventory) {
+        return JSON.parse(savedInventory)
+      }
+    } catch (error) {
+      console.error('Error loading inventory from localStorage:', error)
     }
     // 기본값
     return [
@@ -29,31 +33,74 @@ function AdminPage() {
 
   // 재고 데이터가 변경될 때마다 localStorage 업데이트
   useEffect(() => {
-    localStorage.setItem('inventory', JSON.stringify(inventory))
+    try {
+      localStorage.setItem('inventory', JSON.stringify(inventory))
+    } catch (error) {
+      console.error('Error saving inventory to localStorage:', error)
+    }
   }, [inventory])
 
   // 주문 데이터 - localStorage에서 로드
   const [orders, setOrders] = useState(() => {
-    const savedOrders = localStorage.getItem('orders')
-    return savedOrders ? JSON.parse(savedOrders) : []
+    try {
+      const savedOrders = localStorage.getItem('orders')
+      return savedOrders ? JSON.parse(savedOrders) : []
+    } catch (error) {
+      console.error('Error loading orders from localStorage:', error)
+      return []
+    }
   })
 
-  // localStorage에서 주문 데이터 동기화
+  // localStorage storage 이벤트를 통한 주문 데이터 동기화 (더 효율적)
   useEffect(() => {
-    const interval = setInterval(() => {
-      const savedOrders = localStorage.getItem('orders')
-      if (savedOrders) {
-        const parsedOrders = JSON.parse(savedOrders)
-        setOrders(parsedOrders)
+    const handleStorageChange = (e) => {
+      if (e.key === 'orders' && e.newValue) {
+        try {
+          const parsedOrders = JSON.parse(e.newValue)
+          setOrders(parsedOrders)
+        } catch (error) {
+          console.error('Error parsing orders from storage event:', error)
+        }
       }
-    }, 1000) // 1초마다 확인
+    }
 
-    return () => clearInterval(interval)
+    window.addEventListener('storage', handleStorageChange)
+    
+    // 같은 탭 내에서 localStorage 변경 감지 (storage 이벤트는 다른 탭에서만 발생)
+    // 같은 탭에서는 직접 확인
+    const checkOrders = () => {
+      try {
+        const savedOrders = localStorage.getItem('orders')
+        if (savedOrders) {
+          const parsedOrders = JSON.parse(savedOrders)
+          setOrders(prevOrders => {
+            // 실제 변경이 있을 때만 업데이트
+            if (JSON.stringify(prevOrders) !== JSON.stringify(parsedOrders)) {
+              return parsedOrders
+            }
+            return prevOrders
+          })
+        }
+      } catch (error) {
+        console.error('Error checking orders:', error)
+      }
+    }
+
+    const interval = setInterval(checkOrders, 500) // 0.5초마다 확인 (성능 개선)
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      clearInterval(interval)
+    }
   }, [])
 
   // 주문 데이터가 변경될 때마다 localStorage 업데이트
   useEffect(() => {
-    localStorage.setItem('orders', JSON.stringify(orders))
+    try {
+      localStorage.setItem('orders', JSON.stringify(orders))
+    } catch (error) {
+      console.error('Error saving orders to localStorage:', error)
+    }
   }, [orders])
 
   // 대시보드 데이터 업데이트
@@ -107,18 +154,22 @@ function AdminPage() {
   // 제조 완료 (제조 중 -> 제조 완료)
   const completeManufacturing = (orderId) => {
     const order = orders.find(o => o.id === orderId)
-    if (order) {
-      // 재고 차감
+    if (!order) return
+
+    // 재고 차감 (한 번에 처리)
+    setInventory(prevInventory => {
+      const updatedInventory = [...prevInventory]
       order.items.forEach(item => {
-        setInventory(prevInventory =>
-          prevInventory.map(inv =>
-            inv.id === item.menuId
-              ? { ...inv, stock: Math.max(0, inv.stock - item.quantity) }
-              : inv
-          )
-        )
+        const inventoryIndex = updatedInventory.findIndex(inv => inv.id === item.menuId)
+        if (inventoryIndex >= 0) {
+          updatedInventory[inventoryIndex] = {
+            ...updatedInventory[inventoryIndex],
+            stock: Math.max(0, updatedInventory[inventoryIndex].stock - item.quantity)
+          }
+        }
       })
-    }
+      return updatedInventory
+    })
     
     // 주문 상태 업데이트
     updateOrderStatus(orderId, 'completed')

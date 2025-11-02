@@ -5,7 +5,7 @@ import Toast from '../components/Toast'
 import '../styles/OrderPage.css'
 
 function OrderPage() {
-  const [toast, setToast] = useState({ show: false, message: '' })
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
   // 임의의 커피 메뉴 데이터 (이미지 URL 포함)
   const menuItems = [
     {
@@ -13,7 +13,7 @@ function OrderPage() {
       name: '아메리카노(ICE)',
       price: 4000,
       description: '시원하고 깔끔한 아이스 아메리카노',
-      image: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?w=400&h=300&fit=crop',
+      image: '/images/americano-ice.jpg.jpg',
       options: [
         { name: '샷 추가', price: 500 },
         { name: '시럽 추가', price: 0 }
@@ -24,7 +24,7 @@ function OrderPage() {
       name: '아메리카노(HOT)',
       price: 4000,
       description: '따뜻하고 진한 핫 아메리카노',
-      image: 'https://images.unsplash.com/photo-1517487881594-2787fef5ebf7?w=400&h=300&fit=crop',
+      image: '/images/americano-hot.jpg.jpg',
       options: [
         { name: '샷 추가', price: 500 },
         { name: '시럽 추가', price: 0 }
@@ -35,7 +35,7 @@ function OrderPage() {
       name: '카페라떼',
       price: 5000,
       description: '부드러운 우유와 에스프레소의 조화',
-      image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=400&h=300&fit=crop',
+      image: '/images/latte.jpg.jpg',
       options: [
         { name: '샷 추가', price: 500 },
         { name: '시럽 추가', price: 0 }
@@ -119,9 +119,35 @@ function OrderPage() {
     if (cartItems.length === 0) {
       setToast({
         show: true,
-        message: '장바구니가 비어있습니다.'
+        message: '장바구니가 비어있습니다.',
+        type: 'error'
       })
       return
+    }
+
+    // 재고 확인
+    try {
+      const savedInventory = JSON.parse(localStorage.getItem('inventory') || '[]')
+      const insufficientItems = []
+      
+      cartItems.forEach(cartItem => {
+        const inventoryItem = savedInventory.find(inv => inv.id === cartItem.menuId)
+        if (!inventoryItem || inventoryItem.stock < cartItem.quantity) {
+          insufficientItems.push(cartItem.name)
+        }
+      })
+
+      if (insufficientItems.length > 0) {
+        setToast({
+          show: true,
+          message: `재고가 부족합니다:\n${insufficientItems.join(', ')}`,
+          type: 'error'
+        })
+        return
+      }
+    } catch (error) {
+      console.error('Error checking inventory:', error)
+      // 재고 확인 실패 시에도 주문 진행 (데이터 일관성을 위해)
     }
 
     const totalAmount = cartItems.reduce(
@@ -145,22 +171,32 @@ function OrderPage() {
     }
 
     // localStorage에 주문 추가
-    const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-    existingOrders.push(newOrder)
-    localStorage.setItem('orders', JSON.stringify(existingOrders))
+    try {
+      const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
+      existingOrders.push(newOrder)
+      localStorage.setItem('orders', JSON.stringify(existingOrders))
 
-    // 토스트 메시지 표시
-    setToast({
-      show: true,
-      message: `주문이 완료되었습니다!\n총 금액: ${totalAmount.toLocaleString()}원`
-    })
-    
-    setCartItems([])
+      // 토스트 메시지 표시
+      setToast({
+        show: true,
+        message: `주문이 완료되었습니다!\n총 금액: ${totalAmount.toLocaleString()}원`,
+        type: 'success'
+      })
+      
+      setCartItems([])
+    } catch (error) {
+      console.error('Error saving order:', error)
+      setToast({
+        show: true,
+        message: '주문 저장 중 오류가 발생했습니다.',
+        type: 'error'
+      })
+    }
   }
 
   // 토스트 닫기
   const closeToast = () => {
-    setToast({ show: false, message: '' })
+    setToast({ show: false, message: '', type: 'success' })
   }
 
   return (
@@ -184,6 +220,7 @@ function OrderPage() {
       <Toast
         message={toast.message}
         show={toast.show}
+        type={toast.type}
         onClose={closeToast}
       />
     </div>

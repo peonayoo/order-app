@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import '../styles/Toast.css'
 
-function Toast({ message, onClose, show }) {
+function Toast({ message, onClose, show, type = 'success' }) {
   useEffect(() => {
     if (show) {
       const timer = setTimeout(() => {
@@ -14,10 +14,12 @@ function Toast({ message, onClose, show }) {
 
   if (!show) return null
 
+  const icon = type === 'error' ? '✕' : '✓'
+
   return (
     <div className="toast-container">
-      <div className="toast-message">
-        <div className="toast-icon">✓</div>
+      <div className={`toast-message toast-${type}`}>
+        <div className="toast-icon">{icon}</div>
         <div className="toast-text">{message}</div>
       </div>
     </div>
