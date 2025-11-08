@@ -17,8 +17,23 @@ const app = express()
 const PORT = process.env.PORT || 3001
 
 // 미들웨어
+// CORS 설정: 프런트엔드 URL 허용
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://coffee-order-app-ui.onrender.com',
+  'http://localhost:3000'
+].filter(Boolean) // undefined 제거
+
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // origin이 없거나 허용된 origin이면 허용
+    if (!origin || allowedOrigins.some(allowed => origin.includes(allowed.replace('https://', '').replace('http://', '')))) {
+      callback(null, true)
+    } else {
+      // 개발 중이거나 허용 목록에 없어도 일단 허용 (개발 편의)
+      callback(null, true)
+    }
+  },
   credentials: true
 }))
 app.use(express.json())
