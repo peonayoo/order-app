@@ -14,8 +14,16 @@ const getApiBaseUrl = () => {
   }
   
   // 프로덕션 환경 감지 (빌드된 파일인지 확인)
-  const isProduction = window.location.hostname !== 'localhost' && 
-                       window.location.hostname !== '127.0.0.1'
+  const hostname = window.location.hostname
+  const isProduction = hostname !== 'localhost' && 
+                       hostname !== '127.0.0.1' &&
+                       !hostname.includes('localhost')
+  
+  console.log('환경 감지:', {
+    hostname: hostname,
+    isProduction: isProduction,
+    VITE_API_URL: envUrl
+  })
   
   if (isProduction) {
     const prodUrl = 'https://coffee-order-app-server.onrender.com/api'
@@ -60,10 +68,16 @@ export async function apiRequest(endpoint, options = {}) {
   }
 
   try {
-    console.log('API 요청:', url)
+    console.log('=== API 요청 시작 ===')
+    console.log('API Base URL:', API_BASE_URL)
+    console.log('Endpoint:', endpoint)
+    console.log('최종 요청 URL:', url)
+    console.log('요청 옵션:', config)
+    
     const response = await fetch(url, config)
     
     console.log('API 응답 상태:', response.status, response.statusText)
+    console.log('응답 URL:', response.url)
     
     // 응답이 비어있을 수 있으므로 확인
     const contentType = response.headers.get('content-type')
