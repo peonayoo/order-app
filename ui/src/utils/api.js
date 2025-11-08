@@ -2,7 +2,10 @@
  * API 통신을 위한 바닐라 JavaScript 유틸리티
  */
 
-const API_BASE_URL = 'http://localhost:3001/api'
+// 환경 변수 또는 기본값 사용
+const API_BASE_URL = import.meta.env.VITE_API_URL 
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : 'http://localhost:3001/api'
 
 /**
  * API 요청을 수행하는 기본 함수

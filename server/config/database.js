@@ -6,7 +6,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
 
 // 데이터베이스 파일 경로
-const dbPath = join(__dirname, '..', 'database.sqlite')
+// Render.com 환경에서는 환경 변수로 지정하거나 기본 경로 사용
+const dbPath = process.env.DATABASE_PATH || join(__dirname, '..', 'database.sqlite')
 
 // SQLite 데이터베이스 연결
 const db = new Database(dbPath)
