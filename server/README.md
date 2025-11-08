@@ -3,8 +3,7 @@
 ## 기술 스택
 - Node.js
 - Express.js
-- PostgreSQL
-- pg (PostgreSQL 클라이언트)
+- SQLite (better-sqlite3)
 
 ## 설치 방법
 
@@ -14,24 +13,25 @@ npm install
 ```
 
 2. 환경 변수 설정
-`.env.example` 파일을 복사하여 `.env` 파일을 생성하고 데이터베이스 정보를 입력하세요.
-
-```bash
-cp .env.example .env
-```
+`.env` 파일을 생성하고 서버 설정을 입력하세요.
 
 `.env` 파일 편집:
 ```
 PORT=3001
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=coffee_order_db
-DB_USER=your_username
-DB_PASSWORD=your_password
 NODE_ENV=development
 ```
 
-3. 서버 실행
+3. 데이터베이스 초기화
+```bash
+npm run init-db
+```
+
+또는 수동으로:
+```bash
+node init-database.js
+```
+
+4. 서버 실행
 
 개발 모드 (파일 변경 시 자동 재시작):
 ```bash
@@ -65,7 +65,7 @@ npm start
 ```
 server/
 ├── config/
-│   └── database.js      # 데이터베이스 연결 설정
+│   └── database.js      # SQLite 데이터베이스 연결 설정
 ├── routes/
 │   ├── index.js         # 기본 라우트
 │   ├── menus.js         # 메뉴 관련 라우트
@@ -73,14 +73,28 @@ server/
 ├── controllers/         # 컨트롤러 (추후 구현)
 ├── models/             # 데이터 모델 (추후 구현)
 ├── middleware/         # 미들웨어 (추후 구현)
-├── .env.example        # 환경 변수 예시
+├── database.sqlite     # SQLite 데이터베이스 파일 (자동 생성)
+├── init-database.js    # 데이터베이스 초기화 스크립트
+├── test-database.js    # 데이터베이스 연결 테스트 스크립트
 ├── .gitignore
 ├── package.json
 ├── server.js           # 서버 진입점
 └── README.md
 ```
 
-## 데이터베이스 설정
+## 데이터베이스 관리
 
-PostgreSQL 데이터베이스를 생성하고, PRD.md의 6.5 섹션에 있는 스키마를 실행하세요.
+### 데이터베이스 초기화
+```bash
+npm run init-db
+```
 
+### 데이터베이스 연결 테스트
+```bash
+npm run test-db
+```
+
+### 데이터베이스 파일
+- 위치: `server/database.sqlite`
+- SQLite는 파일 기반 데이터베이스입니다
+- 백업하려면 `database.sqlite` 파일을 복사하면 됩니다

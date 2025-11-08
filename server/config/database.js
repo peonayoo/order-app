@@ -1,64 +1,60 @@
-import pg from 'pg'
-import dotenv from 'dotenv'
+import Database from 'better-sqlite3'
+import { fileURLToPath } from 'url'
+import { dirname, join } from 'path'
 
-dotenv.config()
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
-const { Pool } = pg
+// 데이터베이스 파일 경로
+const dbPath = join(__dirname, '..', 'database.sqlite')
 
-// PostgreSQL 연결 풀 생성
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'coffee_order_db',
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  max: 20, // 최대 연결 수
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
-})
+// SQLite 데이터베이스 연결
+const db = new Database(dbPath)
 
-// 연결 테스트
-pool.on('connect', () => {
-  console.log('데이터베이스에 연결되었습니다.')
-})
+// 외래키 제약 조건 활성화
+db.pragma('foreign_keys = ON')
 
-pool.on('error', (err) => {
-  console.error('데이터베이스 연결 오류:', err)
-})
+// 데이터베이스 연결 테스트
+try {
+  db.prepare('SELECT 1').get()
+  console.log('✓ SQLite 데이터베이스 연결 성공')
+  console.log(`데이터베이스 파일: ${dbPath}`)
+} catch (error) {
+  console.error('✗ 데이터베이스 연결 실패:', error.message)
+  throw error
+}
 
 // 쿼리 실행 함수
-export const query = async (text, params) => {
+export const query = (sql, params = []) => {
   try {
-    const start = Date.now()
-    const res = await pool.query(text, params)
-    const duration = Date.now() - start
-    console.log('쿼리 실행 완료', { text, duration, rows: res.rowCount })
-    return res
+    const stmt = db.prepare(sql)
+    if (sql.trim().toUpperCase().startsWith('SELECT')) {
+      return stmt.all(params)
+    } else {
+      const result = stmt.run(params)
+      return {
+        lastInsertRowid: result.lastInsertRowid,
+        changes: result.changes
+      }
+    }
   } catch (error) {
-    console.error('쿼리 실행 오류:', error)
+    console.error('쿼리 실행 오류:', error.message)
+    console.error('SQL:', sql)
     throw error
   }
 }
 
 // 트랜잭션 헬퍼 함수
-export const getClient = async () => {
-  const client = await pool.connect()
-  const query = client.query.bind(client)
-  const release = client.release.bind(client)
-
-  // 타임아웃 설정 (5초)
-  const timeout = setTimeout(() => {
-    console.error('클라이언트가 풀로 반환되지 않았습니다!')
-    console.error('마지막 쿼리:', client.lastQuery)
-  }, 5000)
-
-  client.release = () => {
-    clearTimeout(timeout)
-    return release()
-  }
-
-  return client
+export const transaction = (callback) => {
+  const transaction = db.transaction(callback)
+  return transaction()
 }
 
-export default pool
+// 데이터베이스 연결 종료
+export const close = () => {
+  db.close()
+}
+
+export default db
+
 

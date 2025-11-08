@@ -24,8 +24,6 @@ order-app/
 - 백엔드 개발 환경 구성 (Express.js)
 - PRD 문서 작성 (프런트엔드 + 백엔드)
 
-### 🚧 진행 중
-- PostgreSQL 데이터베이스 설정
 
 ## 빠른 시작 가이드
 
@@ -53,11 +51,7 @@ npm run dev
 
 ```env
 PORT=3001
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=coffee_order_db
-DB_USER=postgres
-DB_PASSWORD=your_password
+NODE_ENV=development
 ```
 
 ## 기술 스택
@@ -70,7 +64,6 @@ DB_PASSWORD=your_password
 ### 백엔드
 - Node.js
 - Express.js
-- PostgreSQL (예정)
 
 ## 문서
 
