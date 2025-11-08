@@ -39,7 +39,11 @@ console.log('최종 API Base URL:', API_BASE_URL)
  * @returns {Promise} API 응답
  */
 export async function apiRequest(endpoint, options = {}) {
-  const url = `${API_BASE_URL}${endpoint}`
+  // endpoint 정규화: 앞뒤 슬래시 제거 후 앞에 슬래시 추가
+  const normalizedEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
+  // API_BASE_URL의 마지막 슬래시 제거
+  const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL
+  const url = `${baseUrl}${normalizedEndpoint}`
   const defaultOptions = {
     headers: {
       'Content-Type': 'application/json',
