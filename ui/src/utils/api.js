@@ -56,22 +56,46 @@ export async function apiRequest(endpoint, options = {}) {
   }
 
   try {
+    console.log('API 요청:', url)
     const response = await fetch(url, config)
     
-    const data = await response.json()
+    console.log('API 응답 상태:', response.status, response.statusText)
+    
+    // 응답이 비어있을 수 있으므로 확인
+    const contentType = response.headers.get('content-type')
+    let data
+    
+    if (contentType && contentType.includes('application/json')) {
+      const text = await response.text()
+      if (text) {
+        try {
+          data = JSON.parse(text)
+        } catch (parseError) {
+          console.error('JSON 파싱 오류:', parseError, '응답 텍스트:', text)
+          throw new Error('서버 응답을 파싱할 수 없습니다.')
+        }
+      } else {
+        data = {}
+      }
+    } else {
+      data = await response.text()
+    }
     
     if (!response.ok) {
-      const error = new Error(data.message || `HTTP error! status: ${response.status}`)
+      const error = new Error(data.message || data.error || `HTTP error! status: ${response.status}`)
       error.status = response.status
       error.data = data
+      console.error('API 오류 응답:', error)
       throw error
     }
     
+    console.log('API 응답 성공:', data)
     return data
   } catch (error) {
     console.error('API request failed:', error)
+    console.error('요청 URL:', url)
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      throw new Error('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.')
+      throw new Error('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요. (서버가 sleep 모드일 수 있습니다. 잠시 후 다시 시도해주세요.)')
     }
     throw error
   }

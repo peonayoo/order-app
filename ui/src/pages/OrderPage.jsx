@@ -202,11 +202,20 @@ function OrderPage() {
   return (
     <div className="order-page">
       <div className="menu-section">
-        <div className="menu-grid">
-          {menuItems.map(item => (
-            <MenuCard key={item.id} menuItem={item} onAddToCart={addToCart} />
-          ))}
-        </div>
+        {menuItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '50px' }}>
+            <p>메뉴를 불러올 수 없습니다.</p>
+            <p style={{ fontSize: '0.9rem', color: '#666', marginTop: '10px' }}>
+              브라우저 개발자 도구(F12)의 Console 탭을 확인해주세요.
+            </p>
+          </div>
+        ) : (
+          <div className="menu-grid">
+            {menuItems.map(item => (
+              <MenuCard key={item.id} menuItem={item} onAddToCart={addToCart} />
+            ))}
+          </div>
+        )}
       </div>
 
       <Cart
