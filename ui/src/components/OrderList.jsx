@@ -11,12 +11,18 @@ function OrderList({ orders, onStartManufacturing, onCompleteManufacturing }) {
   }
 
   const formatMenuItems = (items) => {
-    return items.map(item => {
+    return items.map((item, index) => {
       const options = item.options && item.options.length > 0
         ? ` (${item.options.join(', ')})`
         : ''
-      return `${item.name}${options} x ${item.quantity}`
-    }).join(', ')
+      // API에서 menuName으로 반환되므로 menuName 사용
+      const menuName = item.menuName || item.name || '알 수 없음'
+      return (
+        <div key={index} className="order-item-row">
+          {menuName}{options} x {item.quantity}
+        </div>
+      )
+    })
   }
 
   const getStatusButton = (order) => {

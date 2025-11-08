@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import Dashboard from '../components/Dashboard'
 import Inventory from '../components/Inventory'
 import OrderList from '../components/OrderList'
+import { get, patch } from '../utils/api'
 import '../styles/AdminPage.css'
 
 function AdminPage() {
@@ -13,95 +14,50 @@ function AdminPage() {
     completedOrders: 0
   })
 
-  // 재고 데이터 (주문하기 화면과 동일한 메뉴 ID 사용) - localStorage에서 로드
-  const [inventory, setInventory] = useState(() => {
-    try {
-      const savedInventory = localStorage.getItem('inventory')
-      if (savedInventory) {
-        return JSON.parse(savedInventory)
-      }
-    } catch (error) {
-      console.error('Error loading inventory from localStorage:', error)
-    }
-    // 기본값
-    return [
-      { id: 1, name: '아메리카노(ICE)', stock: 10 },
-      { id: 2, name: '아메리카노(HOT)', stock: 10 },
-      { id: 3, name: '카페라떼', stock: 10 }
-    ]
-  })
+  // 재고 데이터 (메뉴 목록)
+  const [inventory, setInventory] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // 재고 데이터가 변경될 때마다 localStorage 업데이트
+  // 주문 데이터
+  const [orders, setOrders] = useState([])
+
+  // 메뉴 목록 및 주문 목록 조회
   useEffect(() => {
-    try {
-      localStorage.setItem('inventory', JSON.stringify(inventory))
-    } catch (error) {
-      console.error('Error saving inventory to localStorage:', error)
-    }
-  }, [inventory])
-
-  // 주문 데이터 - localStorage에서 로드
-  const [orders, setOrders] = useState(() => {
-    try {
-      const savedOrders = localStorage.getItem('orders')
-      return savedOrders ? JSON.parse(savedOrders) : []
-    } catch (error) {
-      console.error('Error loading orders from localStorage:', error)
-      return []
-    }
-  })
-
-  // localStorage storage 이벤트를 통한 주문 데이터 동기화 (더 효율적)
-  useEffect(() => {
-    const handleStorageChange = (e) => {
-      if (e.key === 'orders' && e.newValue) {
-        try {
-          const parsedOrders = JSON.parse(e.newValue)
-          setOrders(parsedOrders)
-        } catch (error) {
-          console.error('Error parsing orders from storage event:', error)
-        }
-      }
-    }
-
-    window.addEventListener('storage', handleStorageChange)
-    
-    // 같은 탭 내에서 localStorage 변경 감지 (storage 이벤트는 다른 탭에서만 발생)
-    // 같은 탭에서는 직접 확인
-    const checkOrders = () => {
+    const fetchData = async () => {
       try {
-        const savedOrders = localStorage.getItem('orders')
-        if (savedOrders) {
-          const parsedOrders = JSON.parse(savedOrders)
-          setOrders(prevOrders => {
-            // 실제 변경이 있을 때만 업데이트
-            if (JSON.stringify(prevOrders) !== JSON.stringify(parsedOrders)) {
-              return parsedOrders
-            }
-            return prevOrders
-          })
-        }
+        setLoading(true)
+        const [menus, ordersData] = await Promise.all([
+          get('/menus'),
+          get('/orders')
+        ])
+        
+        setInventory(menus.map(menu => ({
+          id: menu.id,
+          name: menu.name,
+          stock: menu.stock
+        })))
+        setOrders(ordersData)
       } catch (error) {
-        console.error('Error checking orders:', error)
+        console.error('데이터 조회 오류:', error)
+      } finally {
+        setLoading(false)
       }
     }
 
-    const interval = setInterval(checkOrders, 500) // 0.5초마다 확인 (성능 개선)
+    fetchData()
 
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      clearInterval(interval)
-    }
+    // 주기적으로 주문 목록 새로고침 (5초마다)
+    const interval = setInterval(async () => {
+      try {
+        const ordersData = await get('/orders')
+        setOrders(ordersData)
+      } catch (error) {
+        console.error('주문 목록 새로고침 오류:', error)
+      }
+    }, 5000)
+
+    return () => clearInterval(interval)
   }, [])
-
-  // 주문 데이터가 변경될 때마다 localStorage 업데이트
-  useEffect(() => {
-    try {
-      localStorage.setItem('orders', JSON.stringify(orders))
-    } catch (error) {
-      console.error('Error saving orders to localStorage:', error)
-    }
-  }, [orders])
 
   // 대시보드 데이터 업데이트
   useEffect(() => {
@@ -117,33 +73,59 @@ function AdminPage() {
     })
   }, [orders])
 
+  // 재고 수정
+  const updateStock = async (menuId, newStock) => {
+    try {
+      await patch(`/menus/${menuId}/stock`, { stock: newStock })
+      
+      // 로컬 상태 업데이트
+      setInventory(
+        inventory.map(item =>
+          item.id === menuId ? { ...item, stock: newStock } : item
+        )
+      )
+    } catch (error) {
+      console.error('재고 수정 오류:', error)
+      alert('재고 수정 중 오류가 발생했습니다.')
+    }
+  }
+
   // 재고 증가
   const increaseStock = (menuId) => {
-    setInventory(
-      inventory.map(item =>
-        item.id === menuId ? { ...item, stock: item.stock + 1 } : item
-      )
-    )
+    const item = inventory.find(inv => inv.id === menuId)
+    if (item) {
+      updateStock(menuId, item.stock + 1)
+    }
   }
 
   // 재고 감소
   const decreaseStock = (menuId) => {
-    setInventory(
-      inventory.map(item =>
-        item.id === menuId && item.stock > 0
-          ? { ...item, stock: item.stock - 1 }
-          : item
-      )
-    )
+    const item = inventory.find(inv => inv.id === menuId)
+    if (item && item.stock > 0) {
+      updateStock(menuId, item.stock - 1)
+    }
   }
 
   // 주문 상태 변경
-  const updateOrderStatus = (orderId, newStatus) => {
-    setOrders(
-      orders.map(order =>
-        order.id === orderId ? { ...order, status: newStatus } : order
-      )
-    )
+  const updateOrderStatus = async (orderId, newStatus) => {
+    try {
+      await patch(`/orders/${orderId}/status`, { status: newStatus })
+      
+      // 주문 목록 새로고침
+      const ordersData = await get('/orders')
+      setOrders(ordersData)
+
+      // 재고 정보도 새로고침 (주문 완료 시 재고가 변경될 수 있음)
+      const menus = await get('/menus')
+      setInventory(menus.map(menu => ({
+        id: menu.id,
+        name: menu.name,
+        stock: menu.stock
+      })))
+    } catch (error) {
+      console.error('주문 상태 변경 오류:', error)
+      alert('주문 상태 변경 중 오류가 발생했습니다.')
+    }
   }
 
   // 제조 시작 (주문 접수 -> 제조 중)
@@ -153,26 +135,17 @@ function AdminPage() {
 
   // 제조 완료 (제조 중 -> 제조 완료)
   const completeManufacturing = (orderId) => {
-    const order = orders.find(o => o.id === orderId)
-    if (!order) return
-
-    // 재고 차감 (한 번에 처리)
-    setInventory(prevInventory => {
-      const updatedInventory = [...prevInventory]
-      order.items.forEach(item => {
-        const inventoryIndex = updatedInventory.findIndex(inv => inv.id === item.menuId)
-        if (inventoryIndex >= 0) {
-          updatedInventory[inventoryIndex] = {
-            ...updatedInventory[inventoryIndex],
-            stock: Math.max(0, updatedInventory[inventoryIndex].stock - item.quantity)
-          }
-        }
-      })
-      return updatedInventory
-    })
-    
-    // 주문 상태 업데이트
     updateOrderStatus(orderId, 'completed')
+  }
+
+  if (loading) {
+    return (
+      <div className="admin-page">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          데이터를 불러오는 중...
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -193,4 +166,3 @@ function AdminPage() {
 }
 
 export default AdminPage
-

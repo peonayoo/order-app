@@ -30,13 +30,21 @@ export async function apiRequest(endpoint, options = {}) {
   try {
     const response = await fetch(url, config)
     
+    const data = await response.json()
+    
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`)
+      const error = new Error(data.message || `HTTP error! status: ${response.status}`)
+      error.status = response.status
+      error.data = data
+      throw error
     }
     
-    return await response.json()
+    return data
   } catch (error) {
     console.error('API request failed:', error)
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('서버에 연결할 수 없습니다. 서버가 실행 중인지 확인해주세요.')
+    }
     throw error
   }
 }
@@ -64,6 +72,16 @@ export function post(endpoint, data) {
 export function put(endpoint, data) {
   return apiRequest(endpoint, {
     method: 'PUT',
+    body: JSON.stringify(data),
+  })
+}
+
+/**
+ * PATCH 요청
+ */
+export function patch(endpoint, data) {
+  return apiRequest(endpoint, {
+    method: 'PATCH',
     body: JSON.stringify(data),
   })
 }

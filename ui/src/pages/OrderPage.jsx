@@ -1,49 +1,37 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import MenuCard from '../components/MenuCard'
 import Cart from '../components/Cart'
 import Toast from '../components/Toast'
+import { get, post } from '../utils/api'
 import '../styles/OrderPage.css'
 
 function OrderPage() {
   const [toast, setToast] = useState({ show: false, message: '', type: 'success' })
-  // 임의의 커피 메뉴 데이터 (이미지 URL 포함)
-  const menuItems = [
-    {
-      id: 1,
-      name: '아메리카노(ICE)',
-      price: 4000,
-      description: '시원하고 깔끔한 아이스 아메리카노',
-      image: '/images/americano-ice.jpg.jpg',
-      options: [
-        { name: '샷 추가', price: 500 },
-        { name: '시럽 추가', price: 0 }
-      ]
-    },
-    {
-      id: 2,
-      name: '아메리카노(HOT)',
-      price: 4000,
-      description: '따뜻하고 진한 핫 아메리카노',
-      image: '/images/americano-hot.jpg.jpg',
-      options: [
-        { name: '샷 추가', price: 500 },
-        { name: '시럽 추가', price: 0 }
-      ]
-    },
-    {
-      id: 3,
-      name: '카페라떼',
-      price: 5000,
-      description: '부드러운 우유와 에스프레소의 조화',
-      image: '/images/latte.jpg.jpg',
-      options: [
-        { name: '샷 추가', price: 500 },
-        { name: '시럽 추가', price: 0 }
-      ]
-    }
-  ]
-
+  const [menuItems, setMenuItems] = useState([])
+  const [loading, setLoading] = useState(true)
   const [cartItems, setCartItems] = useState([])
+
+  // 메뉴 목록 조회
+  useEffect(() => {
+    const fetchMenus = async () => {
+      try {
+        setLoading(true)
+        const menus = await get('/menus')
+        setMenuItems(menus)
+      } catch (error) {
+        console.error('메뉴 조회 오류:', error)
+        setToast({
+          show: true,
+          message: '메뉴를 불러오는 중 오류가 발생했습니다.',
+          type: 'error'
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMenus()
+  }, [])
 
   // 장바구니에 추가
   const addToCart = (menuItem, selectedOptions) => {
@@ -115,7 +103,7 @@ function OrderPage() {
   }
 
   // 주문하기
-  const handleOrder = () => {
+  const handleOrder = async () => {
     if (cartItems.length === 0) {
       setToast({
         show: true,
@@ -125,70 +113,66 @@ function OrderPage() {
       return
     }
 
-    // 재고 확인
     try {
-      const savedInventory = JSON.parse(localStorage.getItem('inventory') || '[]')
-      const insufficientItems = []
-      
-      cartItems.forEach(cartItem => {
-        const inventoryItem = savedInventory.find(inv => inv.id === cartItem.menuId)
-        if (!inventoryItem || inventoryItem.stock < cartItem.quantity) {
-          insufficientItems.push(cartItem.name)
+      // 주문 데이터 생성
+      const orderItems = cartItems.map(item => {
+        const menuItem = menuItems.find(m => m.id === item.menuId)
+        const basePrice = menuItem ? menuItem.price : item.price
+        
+        // 옵션 가격 계산
+        const optionPrice = item.options.reduce((sum, optName) => {
+          if (menuItem) {
+            const option = menuItem.options.find(o => o.name === optName)
+            return sum + (option ? option.price : 0)
+          }
+          return sum
+        }, 0)
+        
+        // 단가 = 기본 가격 + 옵션 가격
+        const unitPrice = basePrice + optionPrice
+        // 항목 총액 = (단가 * 수량)
+        const itemTotal = unitPrice * item.quantity
+        
+        return {
+          menuId: item.menuId,
+          name: item.name,
+          quantity: item.quantity,
+          price: unitPrice,
+          options: item.options || [],
+          itemTotal: itemTotal
         }
       })
 
-      if (insufficientItems.length > 0) {
-        setToast({
-          show: true,
-          message: `재고가 부족합니다:\n${insufficientItems.join(', ')}`,
-          type: 'error'
-        })
-        return
-      }
-    } catch (error) {
-      console.error('Error checking inventory:', error)
-      // 재고 확인 실패 시에도 주문 진행 (데이터 일관성을 위해)
-    }
+      const totalAmount = cartItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      )
 
-    const totalAmount = cartItems.reduce(
-      (sum, item) => sum + item.price * item.quantity,
-      0
-    )
+      // API로 주문 생성
+      const result = await post('/orders', {
+        items: orderItems,
+        totalAmount: totalAmount
+      })
 
-    // 주문 데이터 생성
-    const newOrder = {
-      id: Date.now(),
-      orderTime: new Date().toISOString(),
-      items: cartItems.map(item => ({
-        menuId: item.menuId,
-        name: item.name,
-        quantity: item.quantity,
-        price: item.price,
-        options: item.options || []
-      })),
-      totalAmount: totalAmount,
-      status: 'received' // 주문 접수 상태
-    }
-
-    // localStorage에 주문 추가
-    try {
-      const existingOrders = JSON.parse(localStorage.getItem('orders') || '[]')
-      existingOrders.push(newOrder)
-      localStorage.setItem('orders', JSON.stringify(existingOrders))
-
-      // 토스트 메시지 표시
+      // 성공 메시지 표시
       setToast({
         show: true,
         message: `주문이 완료되었습니다!\n총 금액: ${totalAmount.toLocaleString()}원`,
         type: 'success'
       })
-      
+
+      // 장바구니 초기화
       setCartItems([])
+
+      // 메뉴 목록 새로고침 (재고 업데이트 반영)
+      const menus = await get('/menus')
+      setMenuItems(menus)
     } catch (error) {
-      console.error('Error saving order:', error)
+      console.error('주문 생성 오류:', error)
+      const errorMessage = error.message || '주문을 생성하는 중 오류가 발생했습니다.'
       setToast({
         show: true,
-        message: '주문 저장 중 오류가 발생했습니다.',
+        message: errorMessage,
         type: 'error'
       })
     }
@@ -197,6 +181,16 @@ function OrderPage() {
   // 토스트 닫기
   const closeToast = () => {
     setToast({ show: false, message: '', type: 'success' })
+  }
+
+  if (loading) {
+    return (
+      <div className="order-page">
+        <div style={{ textAlign: 'center', padding: '50px' }}>
+          메뉴를 불러오는 중...
+        </div>
+      </div>
+    )
   }
 
   return (
