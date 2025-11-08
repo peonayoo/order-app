@@ -20,9 +20,15 @@ function OrderPage() {
         setMenuItems(menus)
       } catch (error) {
         console.error('메뉴 조회 오류:', error)
+        const errorMessage = error.message || '메뉴를 불러오는 중 오류가 발생했습니다.'
+        console.error('에러 상세:', {
+          message: error.message,
+          stack: error.stack,
+          status: error.status
+        })
         setToast({
           show: true,
-          message: '메뉴를 불러오는 중 오류가 발생했습니다.',
+          message: errorMessage,
           type: 'error'
         })
       } finally {

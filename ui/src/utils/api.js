@@ -8,17 +8,29 @@ const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL
   if (envUrl) {
     // URL에 /api가 이미 포함되어 있는지 확인
-    return envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`
+    const baseUrl = envUrl.endsWith('/api') ? envUrl : `${envUrl}/api`
+    console.log('API URL (환경 변수):', baseUrl)
+    return baseUrl
   }
-  // 프로덕션 환경에서는 백엔드 URL 사용
-  if (import.meta.env.PROD) {
-    return 'https://coffee-order-app-server.onrender.com/api'
+  
+  // 프로덕션 환경 감지 (빌드된 파일인지 확인)
+  const isProduction = window.location.hostname !== 'localhost' && 
+                       window.location.hostname !== '127.0.0.1'
+  
+  if (isProduction) {
+    const prodUrl = 'https://coffee-order-app-server.onrender.com/api'
+    console.log('API URL (프로덕션):', prodUrl)
+    return prodUrl
   }
+  
   // 개발 환경
-  return 'http://localhost:3001/api'
+  const devUrl = 'http://localhost:3001/api'
+  console.log('API URL (개발):', devUrl)
+  return devUrl
 }
 
 const API_BASE_URL = getApiBaseUrl()
+console.log('최종 API Base URL:', API_BASE_URL)
 
 /**
  * API 요청을 수행하는 기본 함수
