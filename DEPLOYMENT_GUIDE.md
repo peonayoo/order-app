@@ -243,3 +243,4 @@ curl https://your-backend.onrender.com/api/health
 4. **모니터링**: Render.com의 모니터링 기능 활용
 5. **백업**: 정기적인 데이터베이스 백업
 
+
